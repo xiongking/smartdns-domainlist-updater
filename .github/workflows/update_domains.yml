@@ -5,65 +5,51 @@ on:
   schedule:
     # '0 */6 * * *' 表示在每小时的第0分钟，每隔6小时运行一次 (例如 00:00, 06:00, 12:00, 18:00 UTC)
     - cron: '0 */6 * * *' 
-  # 也可以手动触发
+  # 允许手动触发
   workflow_dispatch:
 
 jobs:
   update-list:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout repository with Write Permission
         uses: actions/checkout@v4
         with:
-          # 必须拉取完整历史记录，以便后续推送新内容
+          # 必须拉取完整历史记录
           fetch-depth: 0
+          # 【修正 1】：使用具有写入权限的 REPO_TOKEN 进行 Checkout
+          token: ${{ secrets.REPO_TOKEN }}
           
-      - name: Download and Process blacklist_full.conf
+      - name: Download and Process oversea_domainlist
         run: |
           # 下载文件
           curl -sS "https://raw.githubusercontent.com/hezhijie0327/GFWList2AGH/main/gfwlist2smartdns/blacklist_full.conf" -o blacklist_full.conf
           
-          # 处理文件内容：将 'nameserver /domain/foreign' 格式修改为 'domain'
-          # 使用 sed 正则表达式: 匹配 'nameserver /' 后面的内容，直到下一个 '/'，然后是 '/foreign'。
-          # 替换为只保留 'domain' 部分。
+          # 处理内容：将 'nameserver /domain/foreign' 格式修改为 'domain'
           sed -E 's/nameserver \/(.*)\/foreign/\1/g' blacklist_full.conf > oversea_domainlist.conf
           
           # 清理临时文件
           rm blacklist_full.conf
           
-      - name: Download and Process whitelist_full.conf
+      - name: Download and Process domestic_domainlist
         run: |
           # 下载文件
           curl -sS "https://raw.githubusercontent.com/hezhijie0327/GFWList2AGH/main/gfwlist2smartdns/whitelist_full.conf" -o whitelist_full.conf
           
-          # 处理文件内容：将 'nameserver /domain/domestic' 格式修改为 'domain'
-          # 使用 sed 正则表达式: 匹配 'nameserver /' 后面的内容，直到下一个 '/'，然后是 '/domestic'。
-          # 替换为只保留 'domain' 部分。
+          # 处理内容：将 'nameserver /domain/domestic' 格式修改为 'domain'
           sed -E 's/nameserver \/(.*)\/domestic/\1/g' whitelist_full.conf > domestic_domainlist.conf
           
           # 清理临时文件
           rm whitelist_full.conf
 
-      - name: Commit and push changes
-        env:
-          # 使用之前创建的 Secret
-          GH_TOKEN: ${{ secrets.REPO_TOKEN }}
-        run: |
-          # 配置 Git 提交信息
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          # 检查是否有文件更改
-          if git diff --exit-code oversea_domainlist.conf domestic_domainlist.conf; then
-            echo "No changes in domain lists. Skipping commit."
-          else
-            # 添加更改的文件
-            git add oversea_domainlist.conf domestic_domainlist.conf
-            
-            # 提交更改
-            git commit -m "Auto update domain lists (via GitHub Actions)"
-            
-            # 推送更改到当前分支 (通常是 main/master)
-            # 使用 $GH_TOKEN 进行认证
-            git push
-          fi
+      # 【修正 2】：使用专用的 Action 处理提交和推送
+      - name: Commit and Push changes
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: GitHub Action
+          author_email: action@github.com
+          message: 'Auto update domain lists (via GitHub Actions)'
+          # 只提交生成的两个文件
+          add: 'oversea_domainlist.conf domestic_domainlist.conf'
+          # 使用 REPO_TOKEN 进行认证
+          token: ${{ secrets.REPO_TOKEN }}
