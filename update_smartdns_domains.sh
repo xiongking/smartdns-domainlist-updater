@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# 【已更新】GitHub 仓库的 Raw 文件基础 URL
+# GitHub 仓库的 Raw 文件基础 URL
 BASE_URL="https://raw.githubusercontent.com/xiongking/smartdns-domainlist-updater/main"
 DEST_DIR="/etc/smartdns/domain-set"
 
